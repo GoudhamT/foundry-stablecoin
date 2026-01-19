@@ -1,0 +1,10 @@
+What are we building?
+
+1. Relative stability -> Anchored or Pegged for equivalent to $1.00
+    1. Chainlink proce Feed
+    2. Set a function to exchange to BTC & ETH -> $
+2. stability machanisim(minting) : Arthimetic(Decentralized)
+    1. pepole can mint only with enough collateral
+3. Collateral type: Exogeneous(crypto)
+    1. wETH -> wrapped Ethereum
+    2. wBTC -> wrapped Bitcoin
