@@ -24,6 +24,7 @@
 pragma solidity ^0.8.19;
 
 import {ERC20, ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /*
  * @title Decentralized StableCoin
@@ -34,6 +35,6 @@ import {ERC20, ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensio
  * @dev This is contract ment to governed by DSCEngine, This contract is ERC20 implementation
  */
 
-contract DecentralizedStableCoin is ERC20Burnable {
-    constructor() ERC20("DecentralizedStableCoin", "DSC") {}
+contract DecentralizedStableCoin is ERC20Burnable, Ownable {
+    constructor() ERC20("DecentralizedStableCoin", "DSC") Ownable(msg.sender) {}
 }
