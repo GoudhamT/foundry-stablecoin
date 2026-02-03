@@ -25,6 +25,7 @@ pragma solidity ^0.8.19;
 import {DecentralizedStableCoin} from "./DecentralizedStableCoin.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
 /**
  * @title : DSC Engine
@@ -54,10 +55,13 @@ contract DSCEngine is ReentrancyGuard {
     ///////////////////////////
     //    State Variables   //
     //////////////////////////
+    uint256 private constant ADDITIONAL_PRECISION = 1e10;
+    uint256 private constant PRECISION = 1e18;
     mapping(address tokenAddress => address priceFeedAddress) private s_priceFeed;
     mapping(address _sender => mapping(address _tokenAddress => uint256 _amount)) private s_UserCollataeralDeposit;
     DecentralizedStableCoin private immutable i_dscAddress;
-
+    mapping(address user => uint256 DSCmint) private s_DSCMinted;
+    address[] private s_collateralTokens;
     ///////////////////////////
     //    Events   //
     //////////////////////////
@@ -88,6 +92,7 @@ contract DSCEngine is ReentrancyGuard {
         }
         for (uint256 i = 0; i < _tokenAddresses.length; i++) {
             s_priceFeed[_tokenAddresses[i]] = _priceFeedAddresses[i];
+            s_collateralTokens.push(_tokenAddresses[i]);
         }
         i_dscAddress = DecentralizedStableCoin(_dscAddress);
     }
@@ -121,7 +126,15 @@ contract DSCEngine is ReentrancyGuard {
 
     function redeemcollateral() external {}
 
-    function mintDSC() external {}
+    /*
+    * @notice follows CEI
+    * @notice _amntDSC - How much DSC user  wants to mint
+    * @notice they must have more collateral than DSC to mint
+    */
+    function mintDSC(uint256 _amntDSC) external moreThanZero(_amntDSC) nonReentrant {
+        s_DSCMinted[msg.sender] += _amntDSC;
+        _revertIfHEalthFactorIsBroken(msg.sender);
+    }
 
     function burnDSC() external {}
 
@@ -130,4 +143,56 @@ contract DSCEngine is ReentrancyGuard {
     function liquidate() external {}
 
     function GetHealthFactor() external view {}
+
+    //////////////////////////////////////////
+    //   Private & Internal view Functions  //
+    //////////////////////////////////////////
+    /**
+     * Returns how close liquidation is
+     * if user get below 1 then they can get liquidated
+     *
+     */
+
+    function _getAccountInformation(address user)
+        private
+        view
+        returns (uint256 totalDSCMinted, uint256 collateralInUSD)
+    {
+        totalDSCMinted = s_DSCMinted[user];
+        collateralInUSD = getCollaterlaInUSD(user);
+        return (totalDSCMinted, collateralInUSD);
+    }
+
+    function _getHealthFactor(address user) private view returns (uint256) {
+        // total DSC minted
+        // total collateral VALUE
+        (uint256 totalDSCMinted, uint256 totalCollateralInUSD) = _getAccountInformation(user);
+    }
+    function _revertIfHEalthFactorIsBroken(address user) internal view {
+        // 1. check health factor (they don't have collateral )
+        // 2. revert if they don't
+    }
+
+    //////////////////////////////////////////
+    //   Public & External view Functions  //
+    //////////////////////////////////////////
+    function getCollaterlaInUSD(address user) public view returns (uint256 totalCollateralValueInUSD) {
+        //Loop through collateral token and get amount mapped to token
+        // get equivalent USD value
+        for (uint256 i = 0; i < s_collateralTokens.length; i++) {
+            address token = s_collateralTokens[i];
+            uint256 amount = s_UserCollataeralDeposit[user][token];
+            totalCollateralValueInUSD = getUSDValue(token, amount);
+        }
+        return totalCollateralValueInUSD;
+    }
+
+    function getUSDValue(address token, uint256 amount) public view returns (uint256 collateralAmountinUSD) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeed[token]);
+        (, int256 price,,,) = priceFeed.latestRoundData();
+        //1 EHT = $1000
+        //value from CL is 1000 * 1e8
+        collateralAmountinUSD = ((uint256(price) * ADDITIONAL_PRECISION) * amount) / PRECISION;
+        return collateralAmountinUSD;
+    }
 }
