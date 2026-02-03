@@ -52,11 +52,17 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine__TokenAddressesAndPriceFeedAddressesAreNotSameCount();
     error DSCEngine__InvalidTokenAddress();
     error DSCEngine__TransferFailed();
+    error DSCEngine__BreaksHealthFacor(uint256 healthFactor);
+    error DSCEngine__MintFailed();
     ///////////////////////////
     //    State Variables   //
     //////////////////////////
     uint256 private constant ADDITIONAL_PRECISION = 1e10;
     uint256 private constant PRECISION = 1e18;
+    uint256 private constant LIQUDATION_THRESHOLD = 50;
+    uint256 private constant LIQUDATION_PRECISION = 100;
+    uint256 private constant MIN_HEALTH_FACTOR = 1;
+
     mapping(address tokenAddress => address priceFeedAddress) private s_priceFeed;
     mapping(address _sender => mapping(address _tokenAddress => uint256 _amount)) private s_UserCollataeralDeposit;
     DecentralizedStableCoin private immutable i_dscAddress;
@@ -134,6 +140,10 @@ contract DSCEngine is ReentrancyGuard {
     function mintDSC(uint256 _amntDSC) external moreThanZero(_amntDSC) nonReentrant {
         s_DSCMinted[msg.sender] += _amntDSC;
         _revertIfHEalthFactorIsBroken(msg.sender);
+        bool minted = i_dscAddress.mint(msg.sender, _amntDSC);
+        if (!minted) {
+            revert DSCEngine__MintFailed();
+        }
     }
 
     function burnDSC() external {}
@@ -167,10 +177,21 @@ contract DSCEngine is ReentrancyGuard {
         // total DSC minted
         // total collateral VALUE
         (uint256 totalDSCMinted, uint256 totalCollateralInUSD) = _getAccountInformation(user);
+        uint256 collateralAdjustedForThreshold = (totalCollateralInUSD * LIQUDATION_THRESHOLD) / LIQUDATION_PRECISION;
+        // $1000 ETH * 50 = 500000 / 100 = 500
+
+        //$150 ETH / 100 = 1.5
+        //$ 150 * 50 = 7500 / 100 = 75  = > 75 / 100 which is leass than 1
+        return (collateralAdjustedForThreshold * PRECISION) / totalDSCMinted;
     }
+
     function _revertIfHEalthFactorIsBroken(address user) internal view {
         // 1. check health factor (they don't have collateral )
         // 2. revert if they don't
+        uint256 userHealthFactor = _getHealthFactor(user);
+        if (userHealthFactor < MIN_HEALTH_FACTOR) {
+            revert DSCEngine__BreaksHealthFacor(userHealthFactor);
+        }
     }
 
     //////////////////////////////////////////
