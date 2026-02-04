@@ -57,14 +57,13 @@ contract DSCEngine is ReentrancyGuard {
     ///////////////////////////
     //    State Variables   //
     //////////////////////////
-    uint256 private constant ADDITIONAL_PRECISION = 1e10;
     uint256 private constant PRECISION = 1e18;
     uint256 private constant LIQUDATION_THRESHOLD = 50;
     uint256 private constant LIQUDATION_PRECISION = 100;
-    uint256 private constant MIN_HEALTH_FACTOR = 1;
+    uint256 private constant MIN_HEALTH_FACTOR = 1e18;
 
     mapping(address tokenAddress => address priceFeedAddress) private s_priceFeed;
-    mapping(address _sender => mapping(address _tokenAddress => uint256 _amount)) private s_UserCollataeralDeposit;
+    mapping(address _sender => mapping(address _tokenAddress => uint256 _amount)) private s_UserCollateralDeposit;
     DecentralizedStableCoin private immutable i_dscAddress;
     mapping(address user => uint256 DSCmint) private s_DSCMinted;
     address[] private s_collateralTokens;
@@ -119,7 +118,7 @@ contract DSCEngine is ReentrancyGuard {
         isAllowedTokenCollateralAddress(_tokenCollateralAddress)
         nonReentrant
     {
-        s_UserCollataeralDeposit[msg.sender][_tokenCollateralAddress] += _amountCollateral;
+        s_UserCollateralDeposit[msg.sender][_tokenCollateralAddress] += _amountCollateral;
         emit CollateralDeposited(msg.sender, _tokenCollateralAddress, _amountCollateral);
 
         bool success = IERC20(_tokenCollateralAddress).transferFrom(msg.sender, address(this), _amountCollateral);
@@ -169,7 +168,7 @@ contract DSCEngine is ReentrancyGuard {
         returns (uint256 totalDSCMinted, uint256 collateralInUSD)
     {
         totalDSCMinted = s_DSCMinted[user];
-        collateralInUSD = getCollaterlaInUSD(user);
+        collateralInUSD = getCollateralInUSD(user);
         return (totalDSCMinted, collateralInUSD);
     }
 
@@ -197,13 +196,13 @@ contract DSCEngine is ReentrancyGuard {
     //////////////////////////////////////////
     //   Public & External view Functions  //
     //////////////////////////////////////////
-    function getCollaterlaInUSD(address user) public view returns (uint256 totalCollateralValueInUSD) {
+    function getCollateralInUSD(address user) public view returns (uint256 totalCollateralValueInUSD) {
         //Loop through collateral token and get amount mapped to token
         // get equivalent USD value
         for (uint256 i = 0; i < s_collateralTokens.length; i++) {
             address token = s_collateralTokens[i];
-            uint256 amount = s_UserCollataeralDeposit[user][token];
-            totalCollateralValueInUSD = getUSDValue(token, amount);
+            uint256 amount = s_UserCollateralDeposit[user][token];
+            totalCollateralValueInUSD += getUSDValue(token, amount);
         }
         return totalCollateralValueInUSD;
     }
@@ -211,9 +210,13 @@ contract DSCEngine is ReentrancyGuard {
     function getUSDValue(address token, uint256 amount) public view returns (uint256 collateralAmountinUSD) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeed[token]);
         (, int256 price,,,) = priceFeed.latestRoundData();
+        //getting decimals
+        uint256 feed_decimals = priceFeed.decimals();
+        uint256 adjustedPrice = uint256(price) * (10 ** (18 - feed_decimals));
         //1 EHT = $1000
         //value from CL is 1000 * 1e8
-        collateralAmountinUSD = ((uint256(price) * ADDITIONAL_PRECISION) * amount) / PRECISION;
+        // collateralAmountinUSD = ((uint256(price) * ADDITIONAL_PRECISION) * amount) / PRECISION;
+        collateralAmountinUSD = (adjustedPrice * amount) / PRECISION;
         return collateralAmountinUSD;
     }
 }
