@@ -14,6 +14,7 @@ abstract contract codeConstants {
     uint256 public constant ERC20_ETH_AMOUNT = 1000e8;
     uint256 public constant ERC20_BTC_AMOUNT = 1000e8;
     uint256 public constant SEPOLIA_CHAIN = 11155111;
+    uint256 public constant ANVIL_KEY = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
 }
 
 contract HelperConfig is Script, codeConstants {
@@ -29,9 +30,9 @@ contract HelperConfig is Script, codeConstants {
 
     constructor() {
         if (block.chainid == SEPOLIA_CHAIN) {
-            getSepoliaConfig();
+            localNetworkConfig = getSepoliaConfig();
         } else {
-            createorGetAnvilConfig();
+            localNetworkConfig = createorGetAnvilConfig();
         }
     }
 
@@ -61,7 +62,7 @@ contract HelperConfig is Script, codeConstants {
             wbtcUSDPriceFeedAddress: address(wbtcUSDFeed),
             weth: address(wethERC20),
             wbtc: address(wbtcERC20),
-            deployerKey: vm.envUint("PRIVATE_KEY")
+            deployerKey: ANVIL_KEY
         });
     }
 }
