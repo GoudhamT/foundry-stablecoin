@@ -105,15 +105,43 @@ contract DSCEngine is ReentrancyGuard {
     ///////////////////////////
     //   External Functions  //
     ///////////////////////////
-    function depositColletralAndMintDSC() external {}
-
     /*
-     * @param: tokenCollateralAddress - ERC20 token address to deposit as collateral
-     * @param: _amountCollateral - how much amount to deposit for collateral
-     * function follows CEI - Check Executes and Interactions
+     *@param: tokenCollateralAddress - address of ERC20 to deposit as collateral
+     * @param: amountToCollateral - amount to deposit as collateral
+     * @param: amountToMintDSc: amount to mint DSC token
+     * @notice: this is single function which combines both deposit collateral and mint corresponding DSC
      */
+    function depositColletralAndMintDSC(
+        address tokenCollateralAddress,
+        uint256 amountToCollateral,
+        uint256 amountToMintDSc
+    ) external {
+        depositCollateral(tokenCollateralAddress, amountToCollateral);
+        mintDSC(amountToMintDSc);
+    }
+
+    function redeemCollateralDSC() external {}
+
+    function redeemcollateral() external {}
+
+    function burnDSC() external {}
+
+    //$100 ETH -> $50 DSC -> ETH goes down to $40 - under collateral
+    // set threshold when collateral goes down
+    function liquidate() external {}
+
+    function GetHealthFactor() external view {}
+
+    //////////////////////////////////////////
+    //   Public Functions  //
+    //////////////////////////////////////////
+    /*
+         * @param: tokenCollateralAddress - ERC20 token address to deposit as collateral
+         * @param: _amountCollateral - how much amount to deposit for collateral
+         * function follows CEI - Check Executes and Interactions
+         */
     function depositCollateral(address _tokenCollateralAddress, uint256 _amountCollateral)
-        external
+        public
         moreThanZero(_amountCollateral)
         isAllowedTokenCollateralAddress(_tokenCollateralAddress)
         nonReentrant
@@ -127,16 +155,12 @@ contract DSCEngine is ReentrancyGuard {
         }
     }
 
-    function redeemCollateralDSC() external {}
-
-    function redeemcollateral() external {}
-
     /*
-    * @notice follows CEI
-    * @notice _amntDSC - How much DSC user  wants to mint
-    * @notice they must have more collateral than DSC to mint
-    */
-    function mintDSC(uint256 _amntDSC) external moreThanZero(_amntDSC) nonReentrant {
+        * @notice follows CEI
+        * @notice _amntDSC - How much DSC user  wants to mint
+        * @notice they must have more collateral than DSC to mint
+        */
+    function mintDSC(uint256 _amntDSC) public moreThanZero(_amntDSC) nonReentrant {
         s_DSCMinted[msg.sender] += _amntDSC;
         _revertIfHEalthFactorIsBroken(msg.sender);
         bool minted = i_dscAddress.mint(msg.sender, _amntDSC);
@@ -144,14 +168,6 @@ contract DSCEngine is ReentrancyGuard {
             revert DSCEngine__MintFailed();
         }
     }
-
-    function burnDSC() external {}
-
-    //$100 ETH -> $50 DSC -> ETH goes down to $40 - under collateral
-    // set threshold when collateral goes down
-    function liquidate() external {}
-
-    function GetHealthFactor() external view {}
 
     //////////////////////////////////////////
     //   Private & Internal view Functions  //
