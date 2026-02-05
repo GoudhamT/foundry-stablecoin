@@ -54,6 +54,7 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine__TransferFailed();
     error DSCEngine__BreaksHealthFacor(uint256 healthFactor);
     error DSCEngine__MintFailed();
+    error DSCEngine__CollateralAmountMoreThanBalance();
     ///////////////////////////
     //    State Variables   //
     //////////////////////////
@@ -71,7 +72,7 @@ contract DSCEngine is ReentrancyGuard {
     //    Events   //
     //////////////////////////
     event CollateralDeposited(address indexed user, address indexed tokenAddress, uint256 indexed amount);
-
+    event CollateralRedeemed(address indexed user, address indexed tokenAddress, uint256 indexed amount);
     ///////////////////////////
     //    Modifiers          //
     //////////////////////////
@@ -122,7 +123,19 @@ contract DSCEngine is ReentrancyGuard {
 
     function redeemCollateralDSC() external {}
 
-    function redeemcollateral() external {}
+    function redeemcollateral(address tokenCollateralAddress, uint256 amountToCollateral)
+        external
+        moreThanZero(amountToCollateral)
+        nonReentrant
+    {
+        //throw error if amount to be collateral more than then have
+        uint256 amountBalance = s_UserCollateralDeposit[msg.sender][tokenCollateralAddress];
+        if (amountToCollateral > amountBalance) {
+            revert DSCEngine__CollateralAmountMoreThanBalance();
+        }
+        s_UserCollateralDeposit[msg.sender][tokenCollateralAddress] -= amountToCollateral;
+        emit CollateralRedeemed(msg.sender, tokenCollateralAddress, amountToCollateral);
+    }
 
     function burnDSC() external {}
 
