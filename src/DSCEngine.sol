@@ -121,10 +121,22 @@ contract DSCEngine is ReentrancyGuard {
         mintDSC(amountToMintDSc);
     }
 
-    function redeemCollateralDSC() external {}
+    /*
+     *
+     * @param tokenCollateralAddress  - ERC20 token address
+     * @param collateralAmount  - amount to be collateral
+     * @param amountToBurn  - amount of token to burn
+     * @notice : this function does not require _checkHealthFacor  - as reedeem collateral is executing the same
+     */
+    function redeemCollateralDSC(address tokenCollateralAddress, uint256 collateralAmount, uint256 amountToBurn)
+        external
+    {
+        burnDSC(amountToBurn);
+        redeemcollateral(tokenCollateralAddress, collateralAmount);
+    }
 
     function redeemcollateral(address tokenCollateralAddress, uint256 amountToCollateral)
-        external
+        public
         moreThanZero(amountToCollateral)
         nonReentrant
     {
@@ -147,7 +159,7 @@ contract DSCEngine is ReentrancyGuard {
     }
 
     // do we need to check if this breaks health factor?
-    function burnDSC(uint256 amount) external moreThanZero(amount) nonReentrant {
+    function burnDSC(uint256 amount) public moreThanZero(amount) {
         s_DSCMinted[msg.sender] -= amount;
         // incase if there is failure, revert happens from transferfrom , still getting bool is to make 100%
         bool success = i_dscAddress.transferFrom(msg.sender, address(this), amount);
