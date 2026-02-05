@@ -135,9 +135,28 @@ contract DSCEngine is ReentrancyGuard {
         }
         s_UserCollateralDeposit[msg.sender][tokenCollateralAddress] -= amountToCollateral;
         emit CollateralRedeemed(msg.sender, tokenCollateralAddress, amountToCollateral);
+        bool success = IERC20(tokenCollateralAddress).transfer(msg.sender, amountToCollateral);
+        if (!success) {
+            revert DSCEngine__TransferFailed();
+        }
+        _revertIfHEalthFactorIsBroken(msg.sender);
+        // we have a problem here, collateral is redeemed and DSC minted is not returned, which breaks health factor
+        // 100$ ETH - 20 $ DSC
+        // 100$ ETH - collateral redeemed -> no DSC burned
+        // so first burn minted DSC then redeem collateral
     }
 
-    function burnDSC() external {}
+    // do we need to check if this breaks health factor?
+    function burnDSC(uint256 amount) external moreThanZero(amount) nonReentrant {
+        s_DSCMinted[msg.sender] -= amount;
+        // incase if there is failure, revert happens from transferfrom , still getting bool is to make 100%
+        bool success = i_dscAddress.transferFrom(msg.sender, address(this), amount);
+        if (!success) {
+            revert DSCEngine__TransferFailed();
+        }
+        i_dscAddress.burn(amount);
+        _revertIfHEalthFactorIsBroken(msg.sender); // I don;t think this is needed
+    }
 
     //$100 ETH -> $50 DSC -> ETH goes down to $40 - under collateral
     // set threshold when collateral goes down
