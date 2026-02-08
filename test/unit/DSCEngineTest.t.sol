@@ -52,6 +52,13 @@ contract DSCEngineTest is Test {
         assertEq(expectedUSD, acutalUSD);
     }
 
+    function testgetTokenAmountForUSD() public view {
+        uint256 USDAmount = 100e18;
+        uint256 expectedWEI = 0.05 ether;
+        uint256 actualWEI = engine.getTokenAmountForUSD(wETH, USDAmount);
+        assertEq(expectedWEI, actualWEI);
+    }
+
     //////////////////////////////////
     /////   Deposit Collateral    ////
     /////////////////////////////////
@@ -62,5 +69,13 @@ contract DSCEngineTest is Test {
         vm.prank(USER);
         vm.expectRevert(DSCEngine.DSCEngine__InvalidAmount.selector);
         engine.depositCollateral(wETH, collateralAmount);
+    }
+
+    function testRevertForInvalidTokenAddress() public {
+        ERC20Mock ranToken = new ERC20Mock("RAN", "RAN", USER, 10 ether);
+        vm.prank(USER);
+        uint256 collateralAmount = 10;
+        vm.expectRevert(DSCEngine.DSCEngine__InvalidTokenAddress.selector);
+        engine.depositCollateral(address(ranToken), collateralAmount);
     }
 }
