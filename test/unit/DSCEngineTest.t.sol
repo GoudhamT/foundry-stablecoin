@@ -25,7 +25,9 @@ contract DSCEngineTest is Test {
         (dsc, engine, helperConfig) = deployer.run();
         (ethPriceFeed, btcPriceFeed, wETH,,) = helperConfig.localNetworkConfig();
         // vm.deal(USER, USER_STARTING_BALANCE);
-        ERC20Mock(wETH).mint(USER, 200);
+        ERC20Mock(wETH).mint(USER, 200 ether);
+        vm.prank(USER);
+        ERC20Mock(wETH).approve(address(engine), 200 ether);
     }
 
     ///////////////////////////////////
@@ -62,6 +64,13 @@ contract DSCEngineTest is Test {
     //////////////////////////////////
     /////   Deposit Collateral    ////
     /////////////////////////////////
+    modifier depositCollateral() {
+        uint256 collateralAmount = 5 ether;
+        vm.prank(USER);
+        engine.depositCollateral(wETH, collateralAmount);
+        _;
+    }
+
     function testRevertForZeroAmountCollateral() public {
         uint256 collateralAmount = 0;
         vm.prank(USER);
@@ -77,5 +86,14 @@ contract DSCEngineTest is Test {
         uint256 collateralAmount = 10;
         vm.expectRevert(DSCEngine.DSCEngine__InvalidTokenAddress.selector);
         engine.depositCollateral(address(ranToken), collateralAmount);
+    }
+
+    function testDepositCollateralIsValidAmount() public depositCollateral {
+        uint256 expectedMintedDSC = 0;
+        uint256 expectedCollateralDeposited = 5 ether;
+        (uint256 actualMintedDSC, uint256 amountInUSD) = engine.getAccountInformation(USER);
+        uint256 actualTokenAmount = engine.getTokenAmountForUSD(wETH, amountInUSD);
+        assertEq(expectedMintedDSC, actualMintedDSC);
+        assertEq(expectedCollateralDeposited, actualTokenAmount);
     }
 }
