@@ -299,6 +299,13 @@ contract DSCEngine is ReentrancyGuard {
         // total DSC minted
         // total collateral VALUE
         (uint256 totalDSCMinted, uint256 totalCollateralInUSD) = _getAccountInformation(user);
+        if (totalCollateralInUSD == 0) {
+            return 0;
+        }
+        // If no debt, health factor is infinite
+        if (totalDSCMinted == 0) {
+            return type(uint256).max;
+        }
         uint256 collateralAdjustedForThreshold = (totalCollateralInUSD * LIQUDATION_THRESHOLD) / LIQUIDATION_PRECISION;
         // $1000 ETH * 50 = 50000 / 100 = 500
 
@@ -362,5 +369,9 @@ contract DSCEngine is ReentrancyGuard {
     {
         (totalDSCMinted, collateralInUSD) = _getAccountInformation(user);
         return (totalDSCMinted, collateralInUSD);
+    }
+
+    function getHealthFactor(address user) external view returns (uint256) {
+        return _getHealthFactor(user);
     }
 }

@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.19;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {DeployDSC} from "../../script/DeployDSC.s.sol";
 import {HelperConfig} from "script/HelperConfig.s.sol";
 import {DecentralizedStableCoin} from "src/DecentralizedStableCoin.sol";
@@ -10,6 +10,8 @@ import {DSCEngine} from "../../src/DSCEngine.sol";
 import {ERC20Mock} from "test/Mocks/ERC20Mock.sol";
 
 contract DSCEngineTest is Test {
+    event CollateralDeposited(address indexed user, address indexed tokenAddress, uint256 indexed amount);
+
     DeployDSC deployer;
     DecentralizedStableCoin dsc;
     DSCEngine engine;
@@ -17,14 +19,12 @@ contract DSCEngineTest is Test {
     address wETH;
     address ethPriceFeed;
     address btcPriceFeed;
-    uint256 USER_STARTING_BALANCE = 100;
     address USER = makeAddr("user");
 
     function setUp() public {
         deployer = new DeployDSC();
         (dsc, engine, helperConfig) = deployer.run();
         (ethPriceFeed, btcPriceFeed, wETH,,) = helperConfig.localNetworkConfig();
-        // vm.deal(USER, USER_STARTING_BALANCE);
         ERC20Mock(wETH).mint(USER, 200 ether);
         vm.prank(USER);
         ERC20Mock(wETH).approve(address(engine), 200 ether);
@@ -95,5 +95,39 @@ contract DSCEngineTest is Test {
         uint256 actualTokenAmount = engine.getTokenAmountForUSD(wETH, amountInUSD);
         assertEq(expectedMintedDSC, actualMintedDSC);
         assertEq(expectedCollateralDeposited, actualTokenAmount);
+    }
+
+    function testDepositCollateralEvent() public {
+        vm.expectEmit(true, true, true, false, address(engine));
+        uint256 collateralAmount = 5 ether;
+        emit CollateralDeposited(USER, wETH, collateralAmount);
+        vm.prank(USER);
+        engine.depositCollateral(wETH, collateralAmount);
+    }
+
+    function testBalanceOFUSER() public {
+        uint256 balanceBeforeDeposit = ERC20Mock(wETH).balanceOf(USER);
+        uint256 collateralAmount = 8 ether;
+        vm.prank(USER);
+        engine.depositCollateral(wETH, collateralAmount);
+        uint256 balanceAfterDeposit = ERC20Mock(wETH).balanceOf(USER);
+        console.log("after deposit", balanceAfterDeposit);
+        assertEq(balanceBeforeDeposit, (collateralAmount + balanceAfterDeposit));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                              Mint DSC
+    //////////////////////////////////////////////////////////////*/
+    function testRevertForZeroMintDSC() public {
+        vm.prank(USER);
+        vm.expectRevert(DSCEngine.DSCEngine__InvalidAmount.selector);
+        engine.mintDSC(0);
+    }
+
+    function testRevertForHealthFactor() public {
+        uint256 usersHealthFactor = engine.getHealthFactor(USER);
+        vm.prank(USER);
+        vm.expectRevert(abi.encodeWithSelector(DSCEngine.DSCEngine__BreaksHealthFacor.selector, usersHealthFactor));
+        engine.mintDSC(1);
     }
 }
